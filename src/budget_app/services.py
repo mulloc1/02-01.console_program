@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import re
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date
 from typing import Callable, Iterator, Sequence
 
@@ -169,6 +169,80 @@ def add_transaction(
     )
     tx_repo.append(transaction)
     return transaction
+
+
+def update_transaction(
+    *,
+    tx_repo: TransactionRepository,
+    cat_repo: CategoryRepository,
+    id: str,
+    type: str | None = None,
+    date_str: str | None = None,
+    category: str | None = None,
+    amount: object | None = None,
+    memo: str | None = None,
+    tags: Sequence[str] | None = None,
+) -> tuple[Transaction, Transaction]:
+    """Apply provided fields to the transaction with ``id``; return ``(before, after)``.
+
+    Validates only the fields the caller actually supplied so the CLI can
+    layer plan §9.6 partial updates on top. Raises :class:`NotFoundError`
+    when the id does not exist (exit code 1) and :class:`UserInputError`
+    on any field-level failure (exit code 2). Persistence uses the same
+    atomic ``replace_all`` rewrite as ``delete_transaction`` to avoid
+    leaving the JSONL store half-written (plan.md §5).
+    """
+    transactions = list(tx_repo.iter_transactions())
+    target_index = next(
+        (idx for idx, tx in enumerate(transactions) if tx.id == id), None
+    )
+    if target_index is None:
+        raise NotFoundError("해당 id 의 거래를 찾을 수 없습니다.", id=id)
+    before = transactions[target_index]
+
+    changes: dict[str, object] = {}
+    if date_str is not None:
+        changes["date"] = _parse_iso_date(date_str)
+    if type is not None:
+        if type not in TRANSACTION_TYPES:
+            raise UserInputError(
+                "type 은 income/expense 중 하나여야 합니다.", value=type
+            )
+        changes["type"] = type
+    if amount is not None:
+        changes["amount"] = _parse_positive_int(amount, field_name="amount")
+    if category is not None:
+        if not category:
+            raise UserInputError("category 는 비어있을 수 없습니다.")
+        _ensure_category_exists(cat_repo, category)
+        changes["category"] = category
+    if memo is not None:
+        changes["memo"] = memo
+    if tags is not None:
+        changes["tags"] = [t for t in tags if t]
+
+    after = replace(before, **changes)
+    transactions[target_index] = after
+    tx_repo.replace_all(transactions)
+    return before, after
+
+
+def delete_transaction(
+    *,
+    tx_repo: TransactionRepository,
+    id: str,
+) -> Transaction:
+    """Remove the transaction with ``id`` and return the deleted record.
+
+    Raises :class:`NotFoundError` (exit code 1) when ``id`` is missing.
+    Other rows are preserved through the atomic rewrite.
+    """
+    transactions = list(tx_repo.iter_transactions())
+    target = next((tx for tx in transactions if tx.id == id), None)
+    if target is None:
+        raise NotFoundError("해당 id 의 거래를 찾을 수 없습니다.", id=id)
+    tx_repo.replace_all(tx for tx in transactions if tx.id != id)
+    return target
 
 
 def list_transactions(
@@ -345,10 +419,12 @@ __all__ = [
     "add_category",
     "add_transaction",
     "bootstrap_default_categories",
+    "delete_transaction",
     "get_budget",
     "list_transactions",
     "remove_category",
     "search_transactions",
     "set_budget",
     "summarize_month",
+    "update_transaction",
 ]

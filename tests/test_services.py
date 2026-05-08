@@ -24,12 +24,14 @@ from budget_app.services import (
     add_category,
     add_transaction,
     bootstrap_default_categories,
+    delete_transaction,
     get_budget,
     list_transactions,
     remove_category,
     search_transactions,
     set_budget,
     summarize_month,
+    update_transaction,
 )
 from helpers import temp_budget_data_root
 
@@ -492,6 +494,162 @@ class CategoryServiceTests(unittest.TestCase):
                 [c.name for c in repo.iter_categories()],
                 ["custom"],
             )
+
+
+class UpdateTransactionTests(unittest.TestCase):
+    def _seed(self, paths) -> tuple[TransactionRepository, CategoryRepository]:
+        tx_repo = TransactionRepository(path=paths.transactions)
+        cat_repo = CategoryRepository(path=paths.categories)
+        _seed_categories(cat_repo, ("food", "rent"))
+        _seed_transactions(
+            tx_repo,
+            [
+                Transaction(
+                    id="t0001",
+                    type="expense",
+                    date=date(2026, 5, 1),
+                    amount=12000,
+                    category="food",
+                    memo="lunch",
+                    tags=["a"],
+                ),
+                Transaction(
+                    id="t0002",
+                    type="income",
+                    date=date(2026, 5, 2),
+                    amount=500000,
+                    category="rent",
+                    memo="salary",
+                    tags=[],
+                ),
+            ],
+        )
+        return tx_repo, cat_repo
+
+    def test_updates_only_supplied_fields(self) -> None:
+        # 제공된 필드만 변경되고 나머지는 보존되며 (before, after) 가 반환된다.
+        with temp_budget_data_root() as paths:
+            tx_repo, cat_repo = self._seed(paths)
+            before, after = update_transaction(
+                tx_repo=tx_repo,
+                cat_repo=cat_repo,
+                id="t0001",
+                amount=13000,
+                memo="lunch (2)",
+            )
+            self.assertEqual(before.amount, 12000)
+            self.assertEqual(after.amount, 13000)
+            self.assertEqual(after.memo, "lunch (2)")
+            self.assertEqual(after.category, "food")
+            self.assertEqual(after.date, date(2026, 5, 1))
+            stored = {tx.id: tx for tx in tx_repo.iter_transactions()}
+            self.assertEqual(stored["t0001"], after)
+            self.assertEqual(stored["t0002"].amount, 500000)
+
+    def test_updates_multiple_fields_atomically(self) -> None:
+        # 여러 필드 동시 변경이 한 번의 replace_all 로 영속화된다.
+        with temp_budget_data_root() as paths:
+            tx_repo, cat_repo = self._seed(paths)
+            _, after = update_transaction(
+                tx_repo=tx_repo,
+                cat_repo=cat_repo,
+                id="t0001",
+                date_str="2026-06-01",
+                category="rent",
+                tags=["b", "c"],
+            )
+            self.assertEqual(after.date, date(2026, 6, 1))
+            self.assertEqual(after.category, "rent")
+            self.assertEqual(after.tags, ["b", "c"])
+
+    def test_missing_id_raises_not_found(self) -> None:
+        # 존재하지 않는 id 는 NotFoundError + id 컨텍스트로 보고된다.
+        with temp_budget_data_root() as paths:
+            tx_repo, cat_repo = self._seed(paths)
+            with self.assertRaises(NotFoundError) as ctx:
+                update_transaction(
+                    tx_repo=tx_repo,
+                    cat_repo=cat_repo,
+                    id="ghost",
+                    amount=1,
+                )
+            self.assertEqual(ctx.exception.context.get("id"), "ghost")
+
+    def test_invalid_amount_raises_user_input_error(self) -> None:
+        # 양수가 아닌 amount 는 UserInputError 로 거부되고 저장이 변경되지 않는다.
+        with temp_budget_data_root() as paths:
+            tx_repo, cat_repo = self._seed(paths)
+            with self.assertRaises(UserInputError):
+                update_transaction(
+                    tx_repo=tx_repo,
+                    cat_repo=cat_repo,
+                    id="t0001",
+                    amount=-1,
+                )
+            stored = {tx.id: tx for tx in tx_repo.iter_transactions()}
+            self.assertEqual(stored["t0001"].amount, 12000)
+
+    def test_unknown_category_raises_user_input_error(self) -> None:
+        # 등록되지 않은 카테고리로의 변경은 거부된다.
+        with temp_budget_data_root() as paths:
+            tx_repo, cat_repo = self._seed(paths)
+            with self.assertRaises(UserInputError):
+                update_transaction(
+                    tx_repo=tx_repo,
+                    cat_repo=cat_repo,
+                    id="t0001",
+                    category="ghost",
+                )
+
+    def test_invalid_type_raises_user_input_error(self) -> None:
+        # 허용되지 않는 type 은 UserInputError 로 거부된다.
+        with temp_budget_data_root() as paths:
+            tx_repo, cat_repo = self._seed(paths)
+            with self.assertRaises(UserInputError):
+                update_transaction(
+                    tx_repo=tx_repo,
+                    cat_repo=cat_repo,
+                    id="t0001",
+                    type="BAD",
+                )
+
+
+class DeleteTransactionTests(unittest.TestCase):
+    def test_removes_only_target_row(self) -> None:
+        # 대상 거래만 삭제되고 다른 거래는 그대로 유지된다.
+        with temp_budget_data_root() as paths:
+            tx_repo = TransactionRepository(path=paths.transactions)
+            _seed_transactions(
+                tx_repo,
+                [
+                    Transaction(
+                        id="t1",
+                        type="expense",
+                        date=date(2026, 5, 1),
+                        amount=10,
+                        category="food",
+                    ),
+                    Transaction(
+                        id="t2",
+                        type="expense",
+                        date=date(2026, 5, 2),
+                        amount=20,
+                        category="food",
+                    ),
+                ],
+            )
+            removed = delete_transaction(tx_repo=tx_repo, id="t1")
+            self.assertEqual(removed.id, "t1")
+            remaining = [tx.id for tx in tx_repo.iter_transactions()]
+            self.assertEqual(remaining, ["t2"])
+
+    def test_missing_id_raises_not_found(self) -> None:
+        # 존재하지 않는 id 삭제는 NotFoundError 로 보고된다.
+        with temp_budget_data_root() as paths:
+            tx_repo = TransactionRepository(path=paths.transactions)
+            with self.assertRaises(NotFoundError) as ctx:
+                delete_transaction(tx_repo=tx_repo, id="ghost")
+            self.assertEqual(ctx.exception.context.get("id"), "ghost")
 
 
 if __name__ == "__main__":

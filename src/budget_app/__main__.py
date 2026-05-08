@@ -1,22 +1,14 @@
-"""Entry point for `python -m budget_app`.
+"""Entry point for ``python -m budget_app`` (plan.md §8).
 
-Phase 0 only wires a no-op CLI stub so that the module is importable and
-runnable without crashing. Real subcommands are added in later phases.
+Delegates argument parsing and dispatch to :func:`budget_app.cli.main`,
+then exits with whatever return code the handler produced. Domain
+errors translated by ``@translate_errors`` raise :class:`SystemExit`
+themselves, so this wrapper only handles the success path.
 """
 
 from __future__ import annotations
 
-import sys
-
-
-def main(argv: list[str] | None = None) -> int:
-    """Run the budget_app CLI stub and return a process exit code."""
-    args = sys.argv[1:] if argv is None else list(argv)
-    if args:
-        print(f"budget_app: command not implemented yet: {args[0]}")
-    else:
-        print("budget_app: scaffolding ready. Use a subcommand (added in Phase 3).")
-    return 0
+from budget_app.cli import main
 
 
 if __name__ == "__main__":
