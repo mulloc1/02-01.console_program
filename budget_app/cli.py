@@ -404,6 +404,10 @@ def _handle_add(
 
     raw_type = _prompt_until_valid("type (income/expense): ", _validate_type)
 
+    category_names = [c.name for c in cat_repo.iter_categories()]
+    if category_names:
+        print(f"[INFO] category options: {', '.join(category_names)}")
+
     raw_category = _prompt_until_valid(
         "category: ", lambda v: _ensure_category_exists(cat_repo, v)
     )

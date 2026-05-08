@@ -420,6 +420,27 @@ class UpdateAndDeleteTests(unittest.TestCase):
 
 
 class AddInteractiveTests(unittest.TestCase):
+    def test_shows_available_categories_before_category_prompt(self) -> None:
+        # category 입력 전에 등록된 카테고리 목록을 안내한다.
+        with temp_budget_data_root() as paths:
+            inputs = [
+                "2026-05-08",
+                "expense",
+                "food",
+                "12000",
+                "",
+                "",
+            ]
+            code, stdout, _ = _run_cli(
+                ["add", "-data-dir", str(paths.root)], inputs=inputs
+            )
+            self.assertEqual(code, 0)
+            self.assertIn("[INFO] category options:", stdout)
+            self.assertIn("food", stdout)
+            self.assertIn("transport", stdout)
+            self.assertIn("rent", stdout)
+            self.assertIn("etc", stdout)
+
     def test_interactive_happy_path_creates_transaction(self) -> None:
         # 6개 입력을 모두 통과하면 [OK] 메시지 + id 가 출력되고 저장소에 1건 추가된다.
         with temp_budget_data_root() as paths:
