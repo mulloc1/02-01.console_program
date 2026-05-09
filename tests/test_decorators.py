@@ -12,7 +12,6 @@ import helpers  # noqa: F401  side-effect: extends sys.path so budget_app import
 
 from budget_app.decorators import (
     VERBOSE_ENV_VAR,
-    log_command,
     measure_time,
     translate_errors,
 )
@@ -82,25 +81,6 @@ class TranslateErrorsTests(unittest.TestCase):
 
         with self.assertRaises(RuntimeError):
             boom()
-
-
-class LogCommandTests(unittest.TestCase):
-    def test_emits_start_and_done_around_handler(self) -> None:
-        # 핸들러 진입/완료 라인이 stderr에 차례로 기록되는지 검증한다.
-        calls: list[str] = []
-
-        @log_command("add")
-        def handler() -> str:
-            calls.append("ran")
-            return "ok"
-
-        buf = io.StringIO()
-        with redirect_stderr(buf):
-            result = handler()
-        self.assertEqual(result, "ok")
-        self.assertEqual(calls, ["ran"])
-        lines = buf.getvalue().splitlines()
-        self.assertEqual(lines, ["[INFO] add start", "[INFO] add done"])
 
 
 class MeasureTimeTests(unittest.TestCase):

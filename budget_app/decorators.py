@@ -1,8 +1,7 @@
 """Common cross-cutting decorators (plan.md §7).
 
-Three decorators are provided:
+Two decorators are provided:
 
-* :func:`log_command` — emit a start/done line on stderr around a CLI handler.
 * :func:`translate_errors` — render :class:`BudgetAppError` subclasses as
   user-friendly ``[ERROR]`` messages and exit with the right status code
   (subject §4.15).
@@ -27,22 +26,6 @@ from budget_app.errors import BudgetAppError
 F = TypeVar("F", bound=Callable[..., Any])
 
 VERBOSE_ENV_VAR = "BUDGET_APP_VERBOSE"
-
-
-def log_command(name: str) -> Callable[[F], F]:
-    """Log entry/exit of a command to stderr."""
-
-    def decorator(func: F) -> F:
-        @functools.wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            print(f"[INFO] {name} start", file=sys.stderr)
-            result = func(*args, **kwargs)
-            print(f"[INFO] {name} done", file=sys.stderr)
-            return result
-
-        return wrapper  # type: ignore[return-value]
-
-    return decorator
 
 
 def translate_errors(func: F) -> F:
@@ -84,7 +67,6 @@ def measure_time(func: F) -> F:
 
 __all__ = [
     "VERBOSE_ENV_VAR",
-    "log_command",
     "measure_time",
     "translate_errors",
 ]

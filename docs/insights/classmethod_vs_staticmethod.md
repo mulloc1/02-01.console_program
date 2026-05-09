@@ -4,7 +4,7 @@
 
 현재 Phase 1 모델은 `to_dict()` / `from_dict()`를 클래스 내부에 두는 형태로 구현되어 있다.
 
-- 참조: [`models.py`](../../src/budget_app/models.py)
+- 참조: [`models.py`](../../budget_app/models.py)
 - 관련 요구: [`plan.md`](../plan.md) §4
   - 직렬화/역직렬화 헬퍼는 dataclass 모듈 내부에 두고, 외부에는 `to_dict()` / `from_dict()`만 노출
 

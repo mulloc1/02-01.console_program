@@ -3,8 +3,8 @@
 The CLI is a thin shell around :mod:`budget_app.services`: the parser
 turns ``argv`` into a :class:`argparse.Namespace`, handlers compose the
 right repositories, and stdout/stderr formatting follows plan.md §9.9.
-Cross-cutting concerns (error translation, command logging, optional
-elapsed time) ride in via :mod:`budget_app.decorators`.
+Cross-cutting concerns (error translation and optional elapsed time)
+ride in via :mod:`budget_app.decorators`.
 
 Subject §4.1 mandates single-dash options, so ``add_help=False`` is set
 on every parser and ``-help`` is registered manually. Global options
@@ -24,7 +24,6 @@ from typing import Callable, Iterator, Sequence
 
 from budget_app.csv_io import export_csv, import_csv
 from budget_app.decorators import (
-    log_command,
     measure_time,
     translate_errors,
 )
@@ -383,7 +382,6 @@ def _build_export_filters(args: argparse.Namespace) -> TransactionFilters:
 
 
 @translate_errors
-@log_command("add")
 @measure_time
 def _handle_add(
     args: argparse.Namespace, paths: _Paths
@@ -433,7 +431,6 @@ def _handle_add(
 
 
 @translate_errors
-@log_command("list")
 @measure_time
 def _handle_list(
     args: argparse.Namespace, paths: _Paths
@@ -452,7 +449,6 @@ def _handle_list(
 
 
 @translate_errors
-@log_command("search")
 @measure_time
 def _handle_search(
     args: argparse.Namespace, paths: _Paths
@@ -484,7 +480,6 @@ def _handle_search(
 
 
 @translate_errors
-@log_command("summary")
 @measure_time
 def _handle_summary(
     args: argparse.Namespace, paths: _Paths
@@ -502,7 +497,6 @@ def _handle_summary(
 
 
 @translate_errors
-@log_command("budget set")
 @measure_time
 def _handle_budget_set(
     args: argparse.Namespace, paths: _Paths
@@ -517,7 +511,6 @@ def _handle_budget_set(
 
 
 @translate_errors
-@log_command("category add")
 @measure_time
 def _handle_category_add(
     args: argparse.Namespace, paths: _Paths
@@ -534,7 +527,6 @@ def _handle_category_add(
 
 
 @translate_errors
-@log_command("category list")
 @measure_time
 def _handle_category_list(
     args: argparse.Namespace, paths: _Paths
@@ -548,7 +540,6 @@ def _handle_category_list(
 
 
 @translate_errors
-@log_command("category remove")
 @measure_time
 def _handle_category_remove(
     args: argparse.Namespace, paths: _Paths
@@ -561,7 +552,6 @@ def _handle_category_remove(
 
 
 @translate_errors
-@log_command("update")
 @measure_time
 def _handle_update(
     args: argparse.Namespace, paths: _Paths
@@ -591,7 +581,6 @@ def _handle_update(
 
 
 @translate_errors
-@log_command("delete")
 @measure_time
 def _handle_delete(
     args: argparse.Namespace, paths: _Paths
@@ -603,7 +592,6 @@ def _handle_delete(
 
 
 @translate_errors
-@log_command("import")
 @measure_time
 def _handle_import(
     args: argparse.Namespace, paths: _Paths
@@ -633,7 +621,6 @@ def _handle_import(
 
 
 @translate_errors
-@log_command("export")
 @measure_time
 def _handle_export(
     args: argparse.Namespace, paths: _Paths
