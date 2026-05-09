@@ -28,10 +28,10 @@ def _iter_jsonl(
 ) -> Iterator[dict[str, Any] | T]:
     """Yield each JSON object from ``path``.
 
-    Missing files yield nothing. Corrupted lines are skipped with a
-    ``[WARN]`` line on stderr so a single bad row never aborts the
-    whole stream (plan.md §12). If ``factory`` is provided, each decoded
-    payload is transformed before yielding.
+    Missing files yield nothing. Per-line decode/transform failures are
+    skipped with a ``[WARN]`` line on stderr so one bad row never aborts
+    the whole stream (plan.md §12). If ``factory`` is provided, each
+    decoded payload is transformed before yielding.
     """
     if not path.exists():
         return
@@ -46,10 +46,10 @@ def _iter_jsonl(
                     yield payload
                 else:
                     yield factory(payload)
-            except json.JSONDecodeError as exc:
+            except (json.JSONDecodeError, KeyError, ValueError, TypeError) as exc:
                 print(
-                    f"[WARN] skipping corrupted JSONL line: file={path} "
-                    f"line={lineno} reason={exc.msg}",
+                    f"[WARN] skipping invalid JSONL line: file={path} "
+                    f"line={lineno} reason={exc}",
                     file=sys.stderr,
                 )
 

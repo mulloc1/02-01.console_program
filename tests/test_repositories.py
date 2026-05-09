@@ -106,6 +106,31 @@ class TransactionRepositoryTests(unittest.TestCase):
             repo = TransactionRepository(path=paths.transactions)
             self.assertEqual([t.id for t in repo.iter_transactions()], ["ok"])
 
+    def test_invalid_payload_line_is_skipped_with_warning(self) -> None:
+        # from_dict 단계(KeyError/ValueError) 오류도 라인 스킵 후 계속 읽는지 검증한다.
+        with temp_budget_data_root() as paths:
+            invalid_payload = json.dumps(
+                {
+                    "id": "bad",
+                    "type": "expense",
+                    "date": "2026-05-08",
+                    "amount": 12000,
+                    # category 누락 -> KeyError 유도
+                },
+                ensure_ascii=False,
+            )
+            valid_payload = json.dumps(_make_tx("ok").to_dict(), ensure_ascii=False)
+            paths.transactions.write_text(
+                invalid_payload + "\n" + valid_payload + "\n",
+                encoding="utf-8",
+            )
+            repo = TransactionRepository(path=paths.transactions)
+            buf = io.StringIO()
+            with redirect_stderr(buf):
+                loaded = list(repo.iter_transactions())
+            self.assertEqual([t.id for t in loaded], ["ok"])
+            self.assertIn("[WARN] skipping invalid JSONL line:", buf.getvalue())
+
 
 class CategoryRepositoryTests(unittest.TestCase):
     def test_append_and_iter_round_trip(self) -> None:
