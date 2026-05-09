@@ -3,15 +3,12 @@
 from __future__ import annotations
 
 import io
-import os
 import unittest
 from contextlib import redirect_stderr
-from unittest import mock
 
 import helpers  # noqa: F401  side-effect: extends sys.path so budget_app imports
 
 from budget_app.decorators import (
-    VERBOSE_ENV_VAR,
     measure_time,
     translate_errors,
 )
@@ -85,16 +82,14 @@ class TranslateErrorsTests(unittest.TestCase):
 
 class MeasureTimeTests(unittest.TestCase):
     def test_silent_when_not_verbose(self) -> None:
-        # verbose 플래그/환경 변수가 없을 때 stderr 출력이 없어야 함을 검증한다.
+        # verbose 플래그가 없을 때 stderr 출력이 없어야 함을 검증한다.
         @measure_time
         def handler() -> int:
             return 7
 
         buf = io.StringIO()
         with redirect_stderr(buf):
-            with mock.patch.dict(os.environ, {}, clear=False):
-                os.environ.pop(VERBOSE_ENV_VAR, None)
-                result = handler()
+            result = handler()
         self.assertEqual(result, 7)
         self.assertEqual(buf.getvalue(), "")
 
@@ -109,19 +104,6 @@ class MeasureTimeTests(unittest.TestCase):
             handler(verbose=True)
         self.assertIn("[INFO] handler elapsed=", buf.getvalue())
         self.assertIn("ms", buf.getvalue())
-
-    def test_logs_elapsed_when_env_var_set(self) -> None:
-        # BUDGET_APP_VERBOSE 환경 변수만 설정돼도 elapsed 출력이 켜지는지 검증한다.
-        @measure_time
-        def handler() -> None:
-            return None
-
-        buf = io.StringIO()
-        with redirect_stderr(buf):
-            with mock.patch.dict(os.environ, {VERBOSE_ENV_VAR: "1"}, clear=False):
-                handler()
-        self.assertIn("[INFO] handler elapsed=", buf.getvalue())
-
 
 if __name__ == "__main__":
     unittest.main()

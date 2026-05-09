@@ -6,8 +6,7 @@ Two decorators are provided:
   user-friendly ``[ERROR]`` messages and exit with the right status code
   (subject §4.15).
 * :func:`measure_time` — print elapsed wall time on stderr when the caller
-  opts in via ``verbose=True`` or the ``BUDGET_APP_VERBOSE`` environment
-  variable.
+  opts in via ``verbose=True``.
 
 Phase 2 only defines and unit-tests the decorators; the CLI hookup
 happens in Phase 3.
@@ -16,7 +15,6 @@ happens in Phase 3.
 from __future__ import annotations
 
 import functools
-import os
 import sys
 import time
 from typing import Any, Callable, TypeVar
@@ -24,8 +22,6 @@ from typing import Any, Callable, TypeVar
 from budget_app.errors import BudgetAppError
 
 F = TypeVar("F", bound=Callable[..., Any])
-
-VERBOSE_ENV_VAR = "BUDGET_APP_VERBOSE"
 
 
 def translate_errors(func: F) -> F:
@@ -51,11 +47,11 @@ def measure_time(func: F) -> F:
     def wrapper(*args: Any, **kwargs: Any) -> Any:
         # Consume verbose from kwargs so handler signatures can stay clean.
         verbose = bool(kwargs.pop("verbose", False))
-        start = time.perf_counter()
+        start = time.perf_counter() if verbose else None
         try:
             return func(*args, **kwargs)
         finally:
-            if verbose or bool(os.environ.get(VERBOSE_ENV_VAR)):
+            if verbose and start is not None:
                 elapsed_ms = (time.perf_counter() - start) * 1000
                 print(
                     f"[INFO] {func.__name__} elapsed={elapsed_ms:.2f}ms",
@@ -66,7 +62,6 @@ def measure_time(func: F) -> F:
 
 
 __all__ = [
-    "VERBOSE_ENV_VAR",
     "measure_time",
     "translate_errors",
 ]
