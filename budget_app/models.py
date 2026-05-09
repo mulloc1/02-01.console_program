@@ -2,8 +2,10 @@
 
 Defines the three persisted entities (`Transaction`, `Category`, `Budget`)
 with explicit ``to_dict()`` / ``from_dict()`` serialisers. Heavy input
-validation belongs to ``services.py`` (Phase 2); this module only enforces
-the contract needed for round-tripping JSONL records (plan.md §4, §5).
+validation belongs to ``utils`` / ``services``; non-persisted DTOs such as
+search filters and monthly summaries live in :mod:`budget_app.types`. This
+module only enforces the contract needed for round-tripping JSONL records
+(plan.md §4, §5).
 """
 
 from __future__ import annotations

@@ -20,7 +20,7 @@ from budget_app.repositories import (
     CategoryRepository,
     TransactionRepository,
 )
-from budget_app.services import TransactionFilters
+from budget_app.types import TransactionFilters
 from helpers import temp_budget_data_root
 
 

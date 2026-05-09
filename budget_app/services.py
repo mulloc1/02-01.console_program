@@ -11,126 +11,29 @@ CSV import/export is intentionally deferred to Phase 2.5.
 
 from __future__ import annotations
 
-import re
-import uuid
-from dataclasses import dataclass, field, replace
+from dataclasses import replace
 from datetime import date
 from typing import Callable, Iterator, Sequence
 
-from budget_app.errors import (
-    BudgetAppError,
-    CategoryInUseError,
-    NotFoundError,
-    UserInputError,
-)
-from budget_app.models import (
-    TRANSACTION_TYPES,
-    Budget,
-    Category,
-    Transaction,
-)
+from budget_app.errors import CategoryInUseError, NotFoundError, UserInputError
+from budget_app.models import Budget, Category, Transaction
 from budget_app.repositories import (
     BudgetRepository,
     CategoryRepository,
     TransactionRepository,
 )
+from budget_app.types import BudgetUsage, CategoryAmount, MonthlySummary, TransactionFilters
+from budget_app.utils import (
+    default_id_factory,
+    ensure_category_exists,
+    parse_iso_date,
+    parse_positive_int,
+    validate_transaction_type,
+    validate_year_month,
+)
 
 
 DEFAULT_CATEGORIES: tuple[str, ...] = ("food", "transport", "rent", "etc")
-_YEAR_MONTH_RE = re.compile(r"^\d{4}-\d{2}$")
-
-
-def _default_id_factory() -> str:
-    return uuid.uuid4().hex[:12]
-
-
-@dataclass(frozen=True)
-class TransactionFilters:
-    """Search criteria for ``search_transactions`` (plan.md §6, subject §4.9)."""
-
-    from_date: date | None = None
-    to_date: date | None = None
-    category: str | None = None
-    type: str | None = None
-    query: str | None = None
-    tag: str | None = None
-
-
-@dataclass(frozen=True)
-class CategoryAmount:
-    """A single (category, amount) pair used for top-N reports."""
-
-    category: str
-    amount: int
-
-
-@dataclass(frozen=True)
-class BudgetUsage:
-    """How much of a monthly budget has been consumed (plan.md §9.3)."""
-
-    limit: int
-    used: int
-    ratio: float
-    over_amount: int
-
-    @property
-    def is_over(self) -> bool:
-        """Return ``True`` if ``used`` exceeds ``limit``."""
-        return self.over_amount > 0
-
-
-@dataclass(frozen=True)
-class MonthlySummary:
-    """Summary numbers for a single ``YYYY-MM`` month."""
-
-    year_month: str
-    income: int
-    expense: int
-    balance: int
-    top_categories: list[CategoryAmount] = field(default_factory=list)
-    budget_usage: BudgetUsage | None = None
-
-    @property
-    def is_empty(self) -> bool:
-        """Return ``True`` when the month has no transactions."""
-        return self.income == 0 and self.expense == 0 and not self.top_categories
-
-
-def _parse_iso_date(value: str, *, field_name: str = "date") -> date:
-    try:
-        return date.fromisoformat(value)
-    except (TypeError, ValueError):
-        raise UserInputError(
-            f"{field_name} 는 YYYY-MM-DD 형식이어야 합니다.", value=value
-        )
-
-
-def _parse_positive_int(value: object, *, field_name: str) -> int:
-    try:
-        parsed = int(value)  # type: ignore[arg-type]
-    except (TypeError, ValueError):
-        raise UserInputError(f"{field_name} 는 정수여야 합니다.", value=value)
-    if parsed <= 0:
-        raise UserInputError(
-            f"{field_name} 는 양수여야 합니다.",
-            value=parsed,
-            hint="0 보다 큰 정수를 입력하세요.",
-        )
-    return parsed
-
-
-def _validate_year_month(value: str) -> None:
-    if not isinstance(value, str) or not _YEAR_MONTH_RE.match(value):
-        raise UserInputError(
-            "year_month 형식은 YYYY-MM 이어야 합니다.", value=value
-        )
-
-
-def _ensure_category_exists(cat_repo: CategoryRepository, name: str) -> None:
-    for category in cat_repo.iter_categories():
-        if category.name == name:
-            return
-    raise UserInputError("등록되지 않은 카테고리입니다.", category=name)
 
 
 def add_transaction(
@@ -143,21 +46,16 @@ def add_transaction(
     amount: object,
     memo: str = "",
     tags: Sequence[str] | None = None,
-    id_factory: Callable[[], str] = _default_id_factory,
+    id_factory: Callable[[], str] = default_id_factory,
 ) -> Transaction:
     """Validate user input and append a new transaction.
 
     Raises :class:`UserInputError` (exit code 2) if any field is invalid.
     """
-    parsed_date = _parse_iso_date(date_str)
-    if type not in TRANSACTION_TYPES:
-        raise UserInputError(
-            "type 은 income/expense 중 하나여야 합니다.", value=type
-        )
-    parsed_amount = _parse_positive_int(amount, field_name="amount")
-    if not category:
-        raise UserInputError("category 는 비어있을 수 없습니다.")
-    _ensure_category_exists(cat_repo, category)
+    parsed_date = parse_iso_date(date_str)
+    validate_transaction_type(type)
+    parsed_amount = parse_positive_int(amount, field_name="amount")
+    ensure_category_exists(cat_repo, category)
     transaction = Transaction(
         id=id_factory(),
         type=type,
@@ -202,19 +100,14 @@ def update_transaction(
 
     changes: dict[str, object] = {}
     if date_str is not None:
-        changes["date"] = _parse_iso_date(date_str)
+        changes["date"] = parse_iso_date(date_str)
     if type is not None:
-        if type not in TRANSACTION_TYPES:
-            raise UserInputError(
-                "type 은 income/expense 중 하나여야 합니다.", value=type
-            )
+        validate_transaction_type(type)
         changes["type"] = type
     if amount is not None:
-        changes["amount"] = _parse_positive_int(amount, field_name="amount")
+        changes["amount"] = parse_positive_int(amount, field_name="amount")
     if category is not None:
-        if not category:
-            raise UserInputError("category 는 비어있을 수 없습니다.")
-        _ensure_category_exists(cat_repo, category)
+        ensure_category_exists(cat_repo, category)
         changes["category"] = category
     if memo is not None:
         changes["memo"] = memo
@@ -297,7 +190,7 @@ def summarize_month(
     top_n: int = 5,
 ) -> MonthlySummary:
     """Aggregate a single month's totals, top categories and budget usage."""
-    _validate_year_month(year_month)
+    validate_year_month(year_month)
     if top_n <= 0:
         raise UserInputError("top_n 는 양수여야 합니다.", value=top_n)
     income = 0
@@ -345,8 +238,8 @@ def set_budget(
     repo: BudgetRepository, year_month: str, amount: object
 ) -> Budget:
     """Insert or replace the budget for ``year_month``."""
-    _validate_year_month(year_month)
-    parsed_amount = _parse_positive_int(amount, field_name="amount")
+    validate_year_month(year_month)
+    parsed_amount = parse_positive_int(amount, field_name="amount")
     budget = Budget(year_month=year_month, amount=parsed_amount)
     repo.upsert(budget)
     return budget
@@ -354,7 +247,7 @@ def set_budget(
 
 def get_budget(repo: BudgetRepository, year_month: str) -> Budget | None:
     """Return the budget set for ``year_month`` or ``None`` if absent."""
-    _validate_year_month(year_month)
+    validate_year_month(year_month)
     for budget in repo.iter_budgets():
         if budget.year_month == year_month:
             return budget
@@ -410,12 +303,7 @@ def bootstrap_default_categories(repo: CategoryRepository) -> list[Category]:
 
 
 __all__ = [
-    "BudgetAppError",
-    "BudgetUsage",
-    "CategoryAmount",
     "DEFAULT_CATEGORIES",
-    "MonthlySummary",
-    "TransactionFilters",
     "add_category",
     "add_transaction",
     "bootstrap_default_categories",

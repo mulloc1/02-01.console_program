@@ -18,9 +18,9 @@ from budget_app.repositories import (
     CategoryRepository,
     TransactionRepository,
 )
+from budget_app.types import TransactionFilters
 from budget_app.services import (
     DEFAULT_CATEGORIES,
-    TransactionFilters,
     add_category,
     add_transaction,
     bootstrap_default_categories,

@@ -1,9 +1,9 @@
 """CSV import/export for budget_app (plan.md §6, §9.7; subject §4.13).
 
-This module is a thin data layer on top of :mod:`budget_app.services` and
-:mod:`budget_app.repositories`. It owns the CSV schema, decoding rules, and
-per-row skip semantics, but delegates business validation to the helpers
-already exercised by the rest of the service layer. CLI-side rendering of
+This module is a thin data layer on top of :mod:`budget_app.services`,
+:mod:`budget_app.utils`, and :mod:`budget_app.repositories`. It owns the CSV
+schema, decoding rules, and per-row skip semantics, but delegates shared
+parsing and validation to :mod:`budget_app.utils`. CLI-side rendering of
 import/export results lives in Phase 3 — here we only return structured
 ``ImportResult`` data.
 """
@@ -21,13 +21,13 @@ from budget_app.repositories import (
     CategoryRepository,
     TransactionRepository,
 )
-from budget_app.services import (
-    TransactionFilters,
-    _default_id_factory,
-    _ensure_category_exists,
-    _parse_iso_date,
-    _parse_positive_int,
-    search_transactions,
+from budget_app.services import search_transactions
+from budget_app.types import TransactionFilters
+from budget_app.utils import (
+    default_id_factory,
+    ensure_category_exists,
+    parse_iso_date,
+    parse_positive_int,
 )
 
 
@@ -97,7 +97,7 @@ def _parse_row(
 
     raw_date = (row.get("date") or "").strip()
     try:
-        parsed_date = _parse_iso_date(raw_date)
+        parsed_date = parse_iso_date(raw_date)
     except UserInputError:
         raise _SkipRow(f'invalid date "{raw_date}"')
 
@@ -107,13 +107,13 @@ def _parse_row(
 
     raw_amount = (row.get("amount") or "").strip()
     try:
-        amount = _parse_positive_int(raw_amount, field_name="amount")
+        amount = parse_positive_int(raw_amount, field_name="amount")
     except UserInputError:
         raise _SkipRow(f'invalid amount "{raw_amount}"')
 
     category = (row.get("category") or "").strip()
     try:
-        _ensure_category_exists(cat_repo, category)
+        ensure_category_exists(cat_repo, category)
     except UserInputError:
         raise _SkipRow(f'unknown category "{category}"')
 
@@ -137,7 +137,7 @@ def import_csv(
     source: Path,
     tx_repo: TransactionRepository,
     cat_repo: CategoryRepository,
-    id_factory: Callable[[], str] = _default_id_factory,
+    id_factory: Callable[[], str] = default_id_factory,
 ) -> ImportResult:
     """Stream rows from ``source`` and append valid ones to ``tx_repo``.
 

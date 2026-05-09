@@ -11,7 +11,7 @@ from datetime import date
 
 import helpers  # noqa: F401  side-effect: extends sys.path so budget_app imports
 
-from budget_app import cli
+from budget_app.main import main as run_main
 from budget_app.csv_io import EXPECTED_CSV_HEADER
 from budget_app.models import Transaction
 from budget_app.repositories import (
@@ -26,7 +26,7 @@ from helpers import temp_budget_data_root
 def _run_cli(
     argv: list[str], *, inputs: list[str] | None = None
 ) -> tuple[int, str, str]:
-    """Invoke ``cli.main`` and return ``(exit_code, stdout, stderr)``.
+    """Invoke :func:`budget_app.main.main` and return ``(exit_code, stdout, stderr)``.
 
     ``SystemExit`` raised by ``@translate_errors`` (or argparse ``-help``)
     is captured and converted to a numeric exit code so individual tests
@@ -37,7 +37,7 @@ def _run_cli(
 
     def _invoke() -> int:
         try:
-            value = cli.main(argv)
+            value = run_main(argv)
         except SystemExit as exc:
             return int(exc.code) if isinstance(exc.code, int) else 0
         return value if isinstance(value, int) else 0

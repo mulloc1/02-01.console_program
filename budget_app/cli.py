@@ -1,6 +1,7 @@
-"""Command-line entry point for budget_app (plan.md §8, §9).
+"""Argparse graph and per-command handlers for budget_app (plan.md §8, §9).
 
-The CLI is a thin shell around :mod:`budget_app.services`: the parser
+Orchestration (parse → bootstrap → dispatch) lives in :mod:`budget_app.main`.
+This module is a thin shell around :mod:`budget_app.services`: the parser
 turns ``argv`` into a :class:`argparse.Namespace`, handlers compose the
 right repositories, and stdout/stderr formatting follows plan.md §9.9.
 Cross-cutting concerns (error translation and optional elapsed time)
@@ -31,22 +32,16 @@ from budget_app.errors import (
     BudgetAppError,
     UserInputError,
 )
-from budget_app.models import TRANSACTION_TYPES, Transaction
+from budget_app.models import Transaction
 from budget_app.repositories import (
     BudgetRepository,
     CategoryRepository,
     TransactionRepository,
 )
+from budget_app.types import MonthlySummary, TransactionFilters
 from budget_app.services import (
-    MonthlySummary,
-    TransactionFilters,
-    _ensure_category_exists,
-    _parse_iso_date,
-    _parse_positive_int,
-    _validate_year_month,
     add_category,
     add_transaction,
-    bootstrap_default_categories,
     delete_transaction,
     list_transactions,
     remove_category,
@@ -54,6 +49,13 @@ from budget_app.services import (
     set_budget,
     summarize_month,
     update_transaction,
+)
+from budget_app.utils import (
+    ensure_category_exists,
+    parse_iso_date,
+    parse_positive_int,
+    validate_transaction_type,
+    validate_year_month,
 )
 
 
@@ -67,7 +69,7 @@ class _Paths:
     budgets: Path
 
 
-def _resolve_paths(data_dir: str) -> _Paths:
+def resolve_paths(data_dir: str) -> _Paths:
     root = Path(data_dir)
     return _Paths(
         root=root,
@@ -87,7 +89,7 @@ def _add_help(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def _build_parser() -> argparse.ArgumentParser:
+def build_parser() -> argparse.ArgumentParser:
     """Assemble the full subcommand graph rooted at ``budget_app``."""
     global_parser = argparse.ArgumentParser(add_help=False)
     global_parser.add_argument(
@@ -366,7 +368,7 @@ def _prompt_until_valid(prompt: str, validator: Callable[[str], None]) -> str:
 def _build_export_filters(args: argparse.Namespace) -> TransactionFilters:
     """Translate ``export`` options into a :class:`TransactionFilters`."""
     if args.month:
-        _validate_year_month(args.month)
+        validate_year_month(args.month)
         year_str, month_str = args.month.split("-")
         year, month = int(year_str), int(month_str)
         first = date(year, month, 1)
@@ -376,8 +378,8 @@ def _build_export_filters(args: argparse.Namespace) -> TransactionFilters:
             last = date(year, month + 1, 1) - timedelta(days=1)
         return TransactionFilters(from_date=first, to_date=last)
 
-    from_date = _parse_iso_date(args.from_date) if args.from_date else None
-    to_date = _parse_iso_date(args.to_date) if args.to_date else None
+    from_date = parse_iso_date(args.from_date) if args.from_date else None
+    to_date = parse_iso_date(args.to_date) if args.to_date else None
     return TransactionFilters(from_date=from_date, to_date=to_date)
 
 
@@ -390,26 +392,22 @@ def _handle_add(
     cat_repo = CategoryRepository(path=paths.categories)
 
     raw_date = _prompt_until_valid(
-        "date (YYYY-MM-DD): ", lambda v: _parse_iso_date(v)
+        "date (YYYY-MM-DD): ", lambda v: parse_iso_date(v)
     )
 
-    def _validate_type(value: str) -> None:
-        if value not in TRANSACTION_TYPES:
-            raise UserInputError(
-                "type 은 income/expense 중 하나여야 합니다.", value=value
-            )
-
-    raw_type = _prompt_until_valid("type (income/expense): ", _validate_type)
+    raw_type = _prompt_until_valid(
+        "type (income/expense): ", validate_transaction_type
+    )
 
     category_names = [c.name for c in cat_repo.iter_categories()]
     if category_names:
         print(f"[INFO] category options: {', '.join(category_names)}")
 
     raw_category = _prompt_until_valid(
-        "category: ", lambda v: _ensure_category_exists(cat_repo, v)
+        "category: ", lambda v: ensure_category_exists(cat_repo, v)
     )
     raw_amount = _prompt_until_valid(
-        "amount: ", lambda v: _parse_positive_int(v, field_name="amount")
+        "amount: ", lambda v: parse_positive_int(v, field_name="amount")
     )
 
     raw_memo = input("memo (optional): ")
@@ -454,12 +452,10 @@ def _handle_search(
     args: argparse.Namespace, paths: _Paths
 ) -> int:
     tx_repo = TransactionRepository(path=paths.transactions)
-    from_date = _parse_iso_date(args.from_date) if args.from_date else None
-    to_date = _parse_iso_date(args.to_date) if args.to_date else None
-    if args.type and args.type not in TRANSACTION_TYPES:
-        raise UserInputError(
-            "type 은 income/expense 중 하나여야 합니다.", value=args.type
-        )
+    from_date = parse_iso_date(args.from_date) if args.from_date else None
+    to_date = parse_iso_date(args.to_date) if args.to_date else None
+    if args.type:
+        validate_transaction_type(args.type)
 
     filters = TransactionFilters(
         from_date=from_date,
@@ -664,7 +660,7 @@ _CATEGORY_HANDLERS: dict[str, Callable[..., int]] = {
 }
 
 
-def _resolve_handler(args: argparse.Namespace) -> Callable[..., int]:
+def resolve_handler(args: argparse.Namespace) -> Callable[..., int]:
     if args.command == "budget":
         return _BUDGET_HANDLERS[args.budget_action]
     if args.command == "category":
@@ -672,15 +668,3 @@ def _resolve_handler(args: argparse.Namespace) -> Callable[..., int]:
     return _HANDLERS[args.command]
 
 
-def main(argv: list[str] | None = None) -> int:
-    """Parse ``argv``, bootstrap defaults, and dispatch the matching handler."""
-    parser = _build_parser()
-    args = parser.parse_args(argv)
-    paths = _resolve_paths(args.data_dir)
-    cat_repo = CategoryRepository(path=paths.categories)
-    bootstrap_default_categories(cat_repo)
-    handler = _resolve_handler(args)
-    return handler(args, paths, verbose=args.verbose)
-
-
-__all__ = ["main"]
