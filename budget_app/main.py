@@ -7,7 +7,6 @@ dispatch uses :func:`budget_app.cli.resolve_command_handler`.
 
 from __future__ import annotations
 
-import argparse
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -15,7 +14,9 @@ from budget_app.cli import resolve_command_handler
 from budget_app.models import Category
 from budget_app.parser import build_parser
 from budget_app.repositories import CategoryRepository
-from budget_app.services import DEFAULT_CATEGORIES
+
+
+DEFAULT_CATEGORIES: tuple[str, ...] = ("food", "transport", "rent", "etc")
 
 
 @dataclass(frozen=True)
@@ -38,19 +39,15 @@ def _resolve_paths(data_dir: str) -> _Paths:
     )
 
 
-def _bootstrap_default_categories(repo: CategoryRepository) -> list[Category]:
+def _bootstrap_default_categories(repo: CategoryRepository) -> None:
     """Seed default categories on a fresh installation (subject §4.5 안 A).
 
-    Idempotent: returns ``[]`` if any category already exists.
+    Idempotent: no-op when any category already exists. Callers read state
+    from ``repo`` if they need to know what was written.
     """
-    for _existing in repo.iter_categories():
-        return []
-    seeded: list[Category] = []
-    for name in DEFAULT_CATEGORIES:
-        category = Category(name=name)
-        repo.append(category)
-        seeded.append(category)
-    return seeded
+    if not any(repo.iter_categories()):
+        for name in DEFAULT_CATEGORIES:
+            repo.append(Category(name=name))
 
 
 def main(argv: list[str] | None = None) -> int:

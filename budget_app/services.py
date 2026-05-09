@@ -33,9 +33,6 @@ from budget_app.utils import (
 )
 
 
-DEFAULT_CATEGORIES: tuple[str, ...] = ("food", "transport", "rent", "etc")
-
-
 def add_transaction(
     *,
     tx_repo: TransactionRepository,
@@ -288,7 +285,6 @@ def remove_category(
 
 
 __all__ = [
-    "DEFAULT_CATEGORIES",
     "add_category",
     "add_transaction",
     "delete_transaction",
