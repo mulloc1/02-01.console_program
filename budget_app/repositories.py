@@ -24,14 +24,14 @@ T = TypeVar("T")
 
 def _iter_jsonl(
     path: Path,
-    factory: Callable[[dict[str, Any]], T] | None = None,
-) -> Iterator[dict[str, Any] | T]:
+    factory: Callable[[dict[str, Any]], T],
+) -> Iterator[T]:
     """Yield each JSON object from ``path``.
 
     Missing files yield nothing. Per-line decode/transform failures are
     skipped with a ``[WARN]`` line on stderr so one bad row never aborts
-    the whole stream (plan.md §12). If ``factory`` is provided, each
-    decoded payload is transformed before yielding.
+    the whole stream (plan.md §12). Each decoded payload is transformed by
+    ``factory`` before yielding.
     """
     if not path.exists():
         return
@@ -42,10 +42,7 @@ def _iter_jsonl(
                 continue
             try:
                 payload = json.loads(stripped)
-                if factory is None:
-                    yield payload
-                else:
-                    yield factory(payload)
+                yield factory(payload)
             except (json.JSONDecodeError, KeyError, ValueError, TypeError) as exc:
                 print(
                     f"[WARN] skipping invalid JSONL line: file={path} "
