@@ -61,22 +61,18 @@ def translate_errors(func: F) -> F:
     return wrapper  # type: ignore[return-value]
 
 
-def _is_verbose(kwargs: dict[str, Any]) -> bool:
-    if kwargs.get("verbose"):
-        return True
-    return bool(os.environ.get(VERBOSE_ENV_VAR))
-
-
 def measure_time(func: F) -> F:
     """Print elapsed wall time on stderr when verbose mode is enabled."""
 
     @functools.wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
+        # Consume verbose from kwargs so handler signatures can stay clean.
+        verbose = bool(kwargs.pop("verbose", False))
         start = time.perf_counter()
         try:
             return func(*args, **kwargs)
         finally:
-            if _is_verbose(kwargs):
+            if verbose or bool(os.environ.get(VERBOSE_ENV_VAR)):
                 elapsed_ms = (time.perf_counter() - start) * 1000
                 print(
                     f"[INFO] {func.__name__} elapsed={elapsed_ms:.2f}ms",

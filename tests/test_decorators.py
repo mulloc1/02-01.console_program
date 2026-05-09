@@ -121,8 +121,8 @@ class MeasureTimeTests(unittest.TestCase):
     def test_logs_elapsed_when_verbose_kwarg(self) -> None:
         # verbose=True 인자를 받으면 elapsed 라인이 stderr에 출력되는지 검증한다.
         @measure_time
-        def handler(*, verbose: bool = False) -> bool:
-            return verbose
+        def handler() -> bool:
+            return True
 
         buf = io.StringIO()
         with redirect_stderr(buf):

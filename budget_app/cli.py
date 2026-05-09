@@ -386,9 +386,8 @@ def _build_export_filters(args: argparse.Namespace) -> TransactionFilters:
 @log_command("add")
 @measure_time
 def _handle_add(
-    args: argparse.Namespace, paths: _Paths, *, verbose: bool = False
+    args: argparse.Namespace, paths: _Paths
 ) -> int:
-    del verbose
     tx_repo = TransactionRepository(path=paths.transactions)
     cat_repo = CategoryRepository(path=paths.categories)
 
@@ -437,9 +436,8 @@ def _handle_add(
 @log_command("list")
 @measure_time
 def _handle_list(
-    args: argparse.Namespace, paths: _Paths, *, verbose: bool = False
+    args: argparse.Namespace, paths: _Paths
 ) -> int:
-    del verbose
     tx_repo = TransactionRepository(path=paths.transactions)
     transactions = list(list_transactions(tx_repo, args.limit))
     if not transactions:
@@ -457,9 +455,8 @@ def _handle_list(
 @log_command("search")
 @measure_time
 def _handle_search(
-    args: argparse.Namespace, paths: _Paths, *, verbose: bool = False
+    args: argparse.Namespace, paths: _Paths
 ) -> int:
-    del verbose
     tx_repo = TransactionRepository(path=paths.transactions)
     from_date = _parse_iso_date(args.from_date) if args.from_date else None
     to_date = _parse_iso_date(args.to_date) if args.to_date else None
@@ -490,9 +487,8 @@ def _handle_search(
 @log_command("summary")
 @measure_time
 def _handle_summary(
-    args: argparse.Namespace, paths: _Paths, *, verbose: bool = False
+    args: argparse.Namespace, paths: _Paths
 ) -> int:
-    del verbose
     tx_repo = TransactionRepository(path=paths.transactions)
     budget_repo = BudgetRepository(path=paths.budgets)
     summary = summarize_month(
@@ -509,9 +505,8 @@ def _handle_summary(
 @log_command("budget set")
 @measure_time
 def _handle_budget_set(
-    args: argparse.Namespace, paths: _Paths, *, verbose: bool = False
+    args: argparse.Namespace, paths: _Paths
 ) -> int:
-    del verbose
     budget_repo = BudgetRepository(path=paths.budgets)
     budget = set_budget(budget_repo, args.month, args.amount)
     print(
@@ -525,9 +520,8 @@ def _handle_budget_set(
 @log_command("category add")
 @measure_time
 def _handle_category_add(
-    args: argparse.Namespace, paths: _Paths, *, verbose: bool = False
+    args: argparse.Namespace, paths: _Paths
 ) -> int:
-    del verbose
     cat_repo = CategoryRepository(path=paths.categories)
     name = (args.name or "").strip()
     existing = {c.name for c in cat_repo.iter_categories()}
@@ -543,9 +537,8 @@ def _handle_category_add(
 @log_command("category list")
 @measure_time
 def _handle_category_list(
-    args: argparse.Namespace, paths: _Paths, *, verbose: bool = False
+    args: argparse.Namespace, paths: _Paths
 ) -> int:
-    del verbose
     cat_repo = CategoryRepository(path=paths.categories)
     categories = list(cat_repo.iter_categories())
     for c in categories:
@@ -558,9 +551,8 @@ def _handle_category_list(
 @log_command("category remove")
 @measure_time
 def _handle_category_remove(
-    args: argparse.Namespace, paths: _Paths, *, verbose: bool = False
+    args: argparse.Namespace, paths: _Paths
 ) -> int:
-    del verbose
     tx_repo = TransactionRepository(path=paths.transactions)
     cat_repo = CategoryRepository(path=paths.categories)
     remove_category(tx_repo=tx_repo, cat_repo=cat_repo, name=args.name)
@@ -572,9 +564,8 @@ def _handle_category_remove(
 @log_command("update")
 @measure_time
 def _handle_update(
-    args: argparse.Namespace, paths: _Paths, *, verbose: bool = False
+    args: argparse.Namespace, paths: _Paths
 ) -> int:
-    del verbose
     tx_repo = TransactionRepository(path=paths.transactions)
     cat_repo = CategoryRepository(path=paths.categories)
 
@@ -603,9 +594,8 @@ def _handle_update(
 @log_command("delete")
 @measure_time
 def _handle_delete(
-    args: argparse.Namespace, paths: _Paths, *, verbose: bool = False
+    args: argparse.Namespace, paths: _Paths
 ) -> int:
-    del verbose
     tx_repo = TransactionRepository(path=paths.transactions)
     deleted = delete_transaction(tx_repo=tx_repo, id=args.id)
     print(f"[OK] 거래가 삭제되었습니다. id={deleted.id}")
@@ -616,9 +606,8 @@ def _handle_delete(
 @log_command("import")
 @measure_time
 def _handle_import(
-    args: argparse.Namespace, paths: _Paths, *, verbose: bool = False
+    args: argparse.Namespace, paths: _Paths
 ) -> int:
-    del verbose
     tx_repo = TransactionRepository(path=paths.transactions)
     cat_repo = CategoryRepository(path=paths.categories)
     result = import_csv(
@@ -647,9 +636,8 @@ def _handle_import(
 @log_command("export")
 @measure_time
 def _handle_export(
-    args: argparse.Namespace, paths: _Paths, *, verbose: bool = False
+    args: argparse.Namespace, paths: _Paths
 ) -> int:
-    del verbose
     tx_repo = TransactionRepository(path=paths.transactions)
     has_month = bool(args.month)
     has_range = bool(args.from_date) and bool(args.to_date)
