@@ -287,26 +287,10 @@ def remove_category(
     cat_repo.replace_all([c for c in existing if c.name != name])
 
 
-def bootstrap_default_categories(repo: CategoryRepository) -> list[Category]:
-    """Seed default categories on a fresh installation (subject §4.5 안 A).
-
-    Idempotent: returns ``[]`` if any category already exists.
-    """
-    for _existing in repo.iter_categories():
-        return []
-    seeded: list[Category] = []
-    for name in DEFAULT_CATEGORIES:
-        category = Category(name=name)
-        repo.append(category)
-        seeded.append(category)
-    return seeded
-
-
 __all__ = [
     "DEFAULT_CATEGORIES",
     "add_category",
     "add_transaction",
-    "bootstrap_default_categories",
     "delete_transaction",
     "get_budget",
     "list_transactions",

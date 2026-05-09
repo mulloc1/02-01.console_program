@@ -12,18 +12,17 @@ from budget_app.errors import (
     NotFoundError,
     UserInputError,
 )
+from budget_app.main import _bootstrap_default_categories
 from budget_app.models import Budget, Category, Transaction
 from budget_app.repositories import (
     BudgetRepository,
     CategoryRepository,
     TransactionRepository,
 )
-from budget_app.types import TransactionFilters
 from budget_app.services import (
     DEFAULT_CATEGORIES,
     add_category,
     add_transaction,
-    bootstrap_default_categories,
     delete_transaction,
     get_budget,
     list_transactions,
@@ -33,6 +32,7 @@ from budget_app.services import (
     summarize_month,
     update_transaction,
 )
+from budget_app.types import TransactionFilters
 from helpers import temp_budget_data_root
 
 
@@ -473,7 +473,7 @@ class CategoryServiceTests(unittest.TestCase):
         # 빈 카테고리 저장소에 기본 카테고리 4종이 시드되는지 검증한다.
         with temp_budget_data_root() as paths:
             repo = CategoryRepository(path=paths.categories)
-            seeded = bootstrap_default_categories(repo)
+            seeded = _bootstrap_default_categories(repo)
             self.assertEqual(
                 [c.name for c in seeded],
                 list(DEFAULT_CATEGORIES),
@@ -488,7 +488,7 @@ class CategoryServiceTests(unittest.TestCase):
         with temp_budget_data_root() as paths:
             repo = CategoryRepository(path=paths.categories)
             repo.append(Category("custom"))
-            seeded = bootstrap_default_categories(repo)
+            seeded = _bootstrap_default_categories(repo)
             self.assertEqual(seeded, [])
             self.assertEqual(
                 [c.name for c in repo.iter_categories()],
