@@ -58,6 +58,13 @@ python3 -m budget_app <command> [options...]
 
 가져오기는 `import -from <파일>`, 보내기는 `export -out <파일>` 이며, 보내기는 **`-month YYYY-MM`** 또는 **`-from` / `-to`** 날짜 범위 중 하나가 필요합니다.
 
+`import` 실행 시 실패 행은 `line` 과 함께 `id=row-000N` 형태의 행 식별자를 같이 출력하고,
+바로 아래 줄에 해당 행의 원본 컬럼 값(`row: date='...', type='...' ...`)도 보여줍니다.
+예:
+
+`- skip line 7 (id=row-0007): invalid amount "-100"`
+`  row: date='2026-05-07', type='expense', category='food', amount='-100', memo='x', tags=''`
+
 ## 주요 명령 예시 (과제 요약 · `docs/subject.md` §2.1)
 
 아래는 `-data-dir ./data` 를 생략한 예입니다. 필요하면 모든 명령에 동일하게 붙이면 됩니다.
@@ -115,3 +122,12 @@ PYTHONPATH=. python3 -m unittest discover -s tests -p 'test_*.py' -v
 - 요구사항: `docs/subject.md`
 - 구현 계획·모델·저장 정책: `docs/plan.md`
 - 디버깅용 커맨드 모음: `docs/commands.md`
+
+## 데코레이터/클로저 설명 포인트 (평가용)
+
+- 데코레이터는 "핵심 로직 앞뒤에 공통 처리(에러 변환, 실행시간 측정)를 붙이는 래퍼 함수"입니다.
+- 이 프로젝트에서 `@translate_errors` 는 서비스/CLI에서 올라온 `BudgetAppError` 를 사용자 친화적인 `[ERROR]` 출력과 종료 코드로 변환합니다.
+- `@measure_time` 는 `verbose=True` 인 경우만 실행시간 로그를 남겨서, 평소 출력은 깔끔하게 유지하고 필요할 때만 진단 정보를 추가합니다.
+- 클로저는 "내부 함수가 바깥 함수의 지역 변수(환경)를 기억하는 것"입니다.
+- `decorators.py` 기준으로 보면 `wrapper` 함수가 바깥 스코프의 `func` 를 기억하고 있어서, 호출 시점에도 원본 핸들러를 실행할 수 있습니다.
+- `measure_time` 에서는 `verbose`, `start` 같은 실행 문맥을 `wrapper` 내부에서 관리해, 핸들러 시그니처를 오염시키지 않고 부가 기능을 삽입합니다.

@@ -438,7 +438,11 @@ def _handle_import(
         f"(성공 {result.success}, 스킵 {len(result.skips)})"
     )
     for skip in result.skips:
-        print(f"- skip line {skip.line}: {skip.reason}")
+        print(f"- skip line {skip.line} (id={skip.row_id}): {skip.reason}")
+        rendered_values = ", ".join(
+            f"{name}={value!r}" for name, value in skip.row_values.items()
+        )
+        print(f"  row: {rendered_values}")
     print(f"file: {paths.transactions}")
     return 0
 

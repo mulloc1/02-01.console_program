@@ -52,7 +52,9 @@ class ImportSkip:
     """
 
     line: int
+    row_id: str
     reason: str
+    row_values: dict[str, str]
 
 
 @dataclass(frozen=True)
@@ -189,7 +191,18 @@ def import_csv(
                         row, cat_repo=cat_repo, id_factory=id_factory
                     )
                 except _SkipRow as exc:
-                    skips.append(ImportSkip(line=line_no, reason=exc.reason))
+                    row_values = {
+                        field_name: (row.get(field_name) or "")
+                        for field_name in EXPECTED_CSV_HEADER
+                    }
+                    skips.append(
+                        ImportSkip(
+                            line=line_no,
+                            row_id=f"row-{line_no:04d}",
+                            reason=exc.reason,
+                            row_values=row_values,
+                        )
+                    )
                     continue
                 tx_repo.append(transaction)
                 success += 1

@@ -317,7 +317,7 @@ total: 4
 
 ```
 [OK] CSV 가져오기 완료. 처리 13건 (성공 12, 스킵 1)
-- skip line 7: invalid amount "-100"
+- skip line 7 (id=row-0007): invalid amount "-100"
 file: ./data/transactions.jsonl
 ```
 

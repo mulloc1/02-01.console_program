@@ -515,7 +515,11 @@ class ImportTests(unittest.TestCase):
             )
             self.assertEqual(code, 0)
             self.assertIn("[OK] CSV 가져오기 완료. 처리 2건 (성공 1, 스킵 1)", stdout)
-            self.assertIn('- skip line 3: invalid amount "-100"', stdout)
+            self.assertIn(
+                '- skip line 3 (id=row-0003): invalid amount "-100"', stdout
+            )
+            self.assertIn("row: date='2026-05-02'", stdout)
+            self.assertIn("amount='-100'", stdout)
             self.assertIn(f"file: {paths.transactions}", stdout)
 
     def test_total_failure_emits_error_and_exits_one(self) -> None:

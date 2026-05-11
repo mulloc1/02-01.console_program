@@ -25,7 +25,12 @@ F = TypeVar("F", bound=Callable[..., Any])
 
 
 def translate_errors(func: F) -> F:
-    """Convert :class:`BudgetAppError` to ``[ERROR]`` output and exit code."""
+    """Convert :class:`BudgetAppError` to ``[ERROR]`` output and exit code.
+
+    ``wrapper`` is a closure that remembers ``func`` from the outer scope,
+    so every call can execute the original handler while adding shared
+    error-translation behavior around it.
+    """
 
     @functools.wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -41,7 +46,11 @@ def translate_errors(func: F) -> F:
 
 
 def measure_time(func: F) -> F:
-    """Print elapsed wall time on stderr when verbose mode is enabled."""
+    """Print elapsed wall time on stderr when verbose mode is enabled.
+
+    The returned ``wrapper`` closes over ``func`` and measures around it.
+    This keeps timing logic separated from each handler's core responsibility.
+    """
 
     @functools.wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> Any:

@@ -137,6 +137,22 @@ class ImportCsvTests(unittest.TestCase):
             )
             lines = [skip.line for skip in result.skips]
             self.assertEqual(lines, [3, 4, 5, 6])
+            row_ids = [skip.row_id for skip in result.skips]
+            self.assertEqual(
+                row_ids,
+                ["row-0003", "row-0004", "row-0005", "row-0006"],
+            )
+            self.assertEqual(
+                result.skips[0].row_values,
+                {
+                    "date": "2026-05-02",
+                    "type": "expense",
+                    "category": "food",
+                    "amount": "-100",
+                    "memo": "neg",
+                    "tags": "",
+                },
+            )
             stored = list(tx_repo.iter_transactions())
             self.assertEqual(len(stored), 1)
             self.assertEqual(stored[0].memo, "ok")
@@ -166,6 +182,8 @@ class ImportCsvTests(unittest.TestCase):
             self.assertEqual(result.processed, 1)
             self.assertEqual(result.success, 0)
             self.assertEqual(len(result.skips), 1)
+            self.assertEqual(result.skips[0].row_id, "row-0002")
+            self.assertEqual(result.skips[0].row_values["memo"], "no amount")
             self.assertEqual(result.skips[0].reason, 'missing field "amount"')
             self.assertTrue(result.is_total_failure)
 
